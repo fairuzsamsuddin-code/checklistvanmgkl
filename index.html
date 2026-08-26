@@ -434,7 +434,7 @@
             }
         }
 
-        // PDF Export Function using html2pdf.js
+                // PDF Export Function using html2pdf.js and Web Share API
         function exportPDF() {
             const element = document.getElementById('document-container');
             const driverName = document.getElementById('driver-name').value || 'Unknown';
@@ -443,9 +443,8 @@
             // Generate filename based on driver and trip type
             const fileName = `Checklist_Van_${tripType}_${driverName.replace(/\s+/g, '_')}.pdf`;
 
-            // Calculate actual height of the element using scrollHeight to prevent cut off
             const pdfWidth = element.scrollWidth;
-            const pdfHeight = element.scrollHeight + 50; // adding 60px padding for safety margin
+            const pdfHeight = element.scrollHeight + 50; 
 
             const opt = {
                 margin:       0,
@@ -456,12 +455,44 @@
                     useCORS: true,
                     scrollY: 0,
                     windowY: 0,
-                    height: pdfHeight // Forces html2canvas to capture the entire height
+                    height: pdfHeight 
                 },
                 jsPDF:        { unit: 'px', format: [pdfWidth, pdfHeight], orientation: 'portrait' }
             };
 
-            html2pdf().set(opt).from(element).save();
+            // Instead of .save(), we generate a Blob (file object)
+            html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
+                
+                // Convert the blob into a File object
+                const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                // Check if the browser supports sharing files (Works best on Mobile iOS/Android)
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        title: 'Checklist Van',
+                        text: `Checklist Van - ${tripType} (Pemandu: ${driverName})`,
+                        files: [file]
+                    }).then(() => {
+                        console.log('Berjaya dikongsi');
+                    }).catch((error) => {
+                        console.log('Perkongsian dibatalkan atau gagal:', error);
+                        // If they cancel the share, you can choose to auto-download it as a fallback
+                    });
+                } else {
+                    // Fallback for Desktop (PC) or unsupported browsers: Standard Download
+                    alert("Peranti ini tidak menyokong fungsi 'Share' terus ke WhatsApp. PDF akan dimuat turun secara automatik.");
+                    
+                    // Trigger standard download
+                    const url = URL.createObjectURL(pdfBlob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
+            });
         }
 
         // Run initialization
