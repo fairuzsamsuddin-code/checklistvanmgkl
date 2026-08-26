@@ -470,7 +470,7 @@
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     navigator.share({
                         title: 'Checklist Van',
-                        text: `Checklist Van - ${tripType} (Pemandu: ${driverName})`,
+                        text: `Checklist Van - ${tripType} (Pemandu: ${driverName} Co-Pilot: ${copilot-name})`,
                         files: [file]
                     }).then(() => {
                         console.log('Berjaya dikongsi');
