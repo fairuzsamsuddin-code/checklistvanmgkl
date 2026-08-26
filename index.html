@@ -168,7 +168,7 @@
 
         .checklist-item {
             display: flex;
-            align-items: flex-start; /* Keeps the number aligned with the top of the text */
+            align-items: flex-start;
             padding: 12px 0;
             border-bottom: 1px solid #eee;
             gap: 15px;
@@ -186,14 +186,14 @@
             font-weight: bold;
             flex-shrink: 0;
             border: 1px solid var(--gold-color);
-            margin-top: 2px; /* Slight visual adjustment to match text baseline */
+            margin-top: 2px;
         }
 
         .item-content {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 8px; /* Spacing between label and buttons */
+            gap: 8px;
         }
 
         .item-label {
@@ -205,7 +205,7 @@
 
         .item-bottom-row {
             display: flex;
-            justify-content: flex-end; /* Aligns the actions to the right */
+            justify-content: flex-end;
             align-items: center;
             width: 100%;
             gap: 15px;
@@ -259,7 +259,7 @@
 
         .remark-input {
             display: none;
-            flex: 1; /* Allows the remark input to stretch and take up available space on the left */
+            flex: 1;
             padding: 8px;
             border: 1px solid var(--danger-color);
             border-radius: 4px;
@@ -377,7 +377,6 @@
         // Initialize App
         function initApp() {
             checklistData.forEach(item => {
-                // 1. Create Indicators on the Van
                 const indicator = document.createElement('div');
                 indicator.className = 'indicator';
                 indicator.id = `indicator-${item.id}`;
@@ -386,7 +385,6 @@
                 indicator.innerText = item.id; 
                 vanDisplay.appendChild(indicator);
 
-                // 2. Create Checklist Rows with Reordered Layout
                 const row = document.createElement('div');
                 row.className = 'checklist-item';
                 
@@ -418,30 +416,49 @@
             const indicator = document.getElementById(`indicator-${id}`);
             const remarkInput = document.getElementById(`remark-${id}`);
 
-            // Reset classes
             indicator.classList.remove('ok', 'not-ok');
 
             if (status === 'ok') {
                 indicator.classList.add('ok');
                 indicator.innerHTML = '✔';
                 remarkInput.style.display = 'none';
-                remarkInput.value = ''; // Clear remark if changed back to OK
+                remarkInput.value = ''; 
             } else if (status === 'not-ok') {
                 indicator.classList.add('not-ok');
                 indicator.innerHTML = '✖';
                 remarkInput.style.display = 'block';
-                remarkInput.focus(); // Prompt driver to type issue
+                remarkInput.focus(); 
             }
         }
 
-                // PDF Export Function using html2pdf.js and Web Share API
+        // PDF Export Function using html2pdf.js and Web Share API
         function exportPDF() {
             const element = document.getElementById('document-container');
-            const driverName = document.getElementById('driver-name').value || 'Unknown';
-            const tripType = document.getElementById('trip-type').value;
             
-            // Generate filename based on driver and trip type
-            const fileName = `Checklist_Van_${tripType}_${driverName.replace(/\s+/g, '_')}.pdf`;
+            // 1. Get Values
+            const tripType = document.getElementById('trip-type').value;
+            const driverRaw = document.getElementById('driver-name').value.trim();
+            const copilotRaw = document.getElementById('copilot-name').value.trim();
+            const dateTimeRaw = document.getElementById('datetime').value;
+
+            // 2. Format Names (Replace spaces with underscores, handle empty inputs)
+            const driverName = driverRaw ? driverRaw.replace(/\s+/g, '_') : 'Unknown';
+            const copilotName = copilotRaw ? copilotRaw.replace(/\s+/g, '_') : 'Tiada';
+            
+            // 3. Format Date/Time for Filename Safety (Remove invalid characters like ':')
+            let dateTimeFormatted = "";
+            if (dateTimeRaw) {
+                // Converts "YYYY-MM-DDTHH:MM" to "YYYY-MM-DD_HHMM"
+                dateTimeFormatted = dateTimeRaw.replace('T', '_').replace(':', '');
+            } else {
+                // Fallback: If user forgot to pick a date, use the current system date/time
+                const d = new Date();
+                const pad = (n) => n.toString().padStart(2, '0');
+                dateTimeFormatted = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+            }
+            
+            // 4. Generate the structured filename
+            const fileName = `Checklist_${tripType}_${dateTimeFormatted}_D-${driverName}_C-${copilotName}.pdf`;
 
             const pdfWidth = element.scrollWidth;
             const pdfHeight = element.scrollHeight + 50; 
@@ -460,29 +477,26 @@
                 jsPDF:        { unit: 'px', format: [pdfWidth, pdfHeight], orientation: 'portrait' }
             };
 
-            // Instead of .save(), we generate a Blob (file object)
+            // Generate Blob and Share/Download
             html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
-                
-                // Convert the blob into a File object
                 const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-                // Check if the browser supports sharing files (Works best on Mobile iOS/Android)
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    
+                    // Update the WhatsApp message text to include the new details
+                    const shareText = `Checklist Van - ${tripType}\nTarikh: ${dateTimeFormatted.replace('_', ' Jam: ')}\nPemandu: ${driverRaw || 'Tidak dinyatakan'}\nCo-Pilot: ${copilotRaw || 'Tiada'}`;
+
                     navigator.share({
                         title: 'Checklist Van',
-                        text: `Checklist Van - ${tripType} (Pemandu: ${driverName} Co-Pilot: ${copilot-name})`,
+                        text: shareText,
                         files: [file]
                     }).then(() => {
                         console.log('Berjaya dikongsi');
                     }).catch((error) => {
                         console.log('Perkongsian dibatalkan atau gagal:', error);
-                        // If they cancel the share, you can choose to auto-download it as a fallback
                     });
                 } else {
-                    // Fallback for Desktop (PC) or unsupported browsers: Standard Download
                     alert("Peranti ini tidak menyokong fungsi 'Share' terus ke WhatsApp. PDF akan dimuat turun secara automatik.");
-                    
-                    // Trigger standard download
                     const url = URL.createObjectURL(pdfBlob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -500,3 +514,4 @@
     </script>
 </body>
 </html>
+
