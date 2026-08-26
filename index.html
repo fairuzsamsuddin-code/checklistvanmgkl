@@ -445,13 +445,11 @@
             const driverName = driverRaw ? driverRaw.replace(/\s+/g, '_') : 'Unknown';
             const copilotName = copilotRaw ? copilotRaw.replace(/\s+/g, '_') : 'Tiada';
             
-            // 3. Format Date/Time for Filename Safety (Remove invalid characters like ':')
+            // 3. Format Date/Time for Filename Safety
             let dateTimeFormatted = "";
             if (dateTimeRaw) {
-                // Converts "YYYY-MM-DDTHH:MM" to "YYYY-MM-DD_HHMM"
                 dateTimeFormatted = dateTimeRaw.replace('T', '_').replace(':', '');
             } else {
-                // Fallback: If user forgot to pick a date, use the current system date/time
                 const d = new Date();
                 const pad = (n) => n.toString().padStart(2, '0');
                 dateTimeFormatted = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
@@ -459,6 +457,17 @@
             
             // 4. Generate the structured filename
             const fileName = `Checklist_${tripType}_${dateTimeFormatted}_D-${driverName}_C-${copilotName}.pdf`;
+
+            // === FIX FOR MOBILE CLIPPING START ===
+            // Temporarily force width to 800px to avoid layout chopping on smaller screens
+            const originalWidth = element.style.width;
+            const originalMaxWidth = element.style.maxWidth;
+            element.style.width = '800px';
+            element.style.maxWidth = '800px';
+            
+            // Force synchronous reflow so the browser recalibrates layout immediately
+            void element.offsetHeight;
+            // === FIX FOR MOBILE CLIPPING END ===
 
             const pdfWidth = element.scrollWidth;
             const pdfHeight = element.scrollHeight + 50; 
@@ -472,6 +481,7 @@
                     useCORS: true,
                     scrollY: 0,
                     windowY: 0,
+                    windowWidth: 800, // Explicitly enforce canvas capture width
                     height: pdfHeight 
                 },
                 jsPDF:        { unit: 'px', format: [pdfWidth, pdfHeight], orientation: 'portrait' }
@@ -479,6 +489,11 @@
 
             // Generate Blob and Share/Download
             html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
+                
+                // Restore mobile view original styling safely
+                element.style.width = originalWidth;
+                element.style.maxWidth = originalMaxWidth;
+
                 const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -514,4 +529,3 @@
     </script>
 </body>
 </html>
-
